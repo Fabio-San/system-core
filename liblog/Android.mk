@@ -24,8 +24,7 @@ include $(CLEAR_VARS)
 # so make sure we do not regret hard-coding it as follows:
 liblog_cflags := -DLIBLOG_LOG_TAG=1005
 liblog_cflags += -DSNET_EVENT_LOG_TAG=1397638484
-
-liblog_sources := log_event_list.c log_event_write.c logger_write.c
+liblog_sources += log_event_list.c log_event_write.c logger_write.c
 liblog_sources += config_write.c logger_name.c logger_lock.c
 liblog_host_sources := $(liblog_sources) fake_log_device.c event.logtags
 liblog_host_sources += fake_writer.c
@@ -33,6 +32,37 @@ liblog_target_sources := $(liblog_sources) event_tag_map.c
 liblog_target_sources += config_read.c log_time.cpp log_is_loggable.c logprint.c
 liblog_target_sources += pmsg_reader.c pmsg_writer.c
 liblog_target_sources += logd_reader.c logd_writer.c logger_read.c
+
+# some files must not be compiled when building against Mingw
+# they correspond to features not used by our host development tools
+# which are also hard or even impossible to port to native Win32
+WITH_MINGW :=
+ifeq ($(HOST_OS),windows)
+    ifeq ($(strip $(USE_CYGWIN)),)
+        WITH_MINGW := true
+    endif
+endif
+# USE_MINGW is defined when we build against Mingw on Linux
+ifneq ($(strip $(USE_MINGW)),)
+    WITH_MINGW := true
+endif
+
+ifndef WITH_MINGW
+    liblog_sources += \
+        logprint.c \
+        event_tag_map.c
+else
+    liblog_sources += \
+        uio.c
+endif
+
+liblog_host_sources := $(liblog_sources) fake_log_device.c
+liblog_target_sources := $(liblog_sources) log_time.cpp
+ifneq ($(TARGET_USES_LOGD),false)
+liblog_target_sources += log_read.c
+else
+liblog_target_sources += log_read_kern.c
+endif
 
 # Shared and static library for host
 # ========================================================
